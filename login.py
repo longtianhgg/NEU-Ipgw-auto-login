@@ -164,8 +164,23 @@ class IpgwLogin:
         return parser.inputs.get("lt", ""), parser.inputs.get("execution", ""), parser.error
 
     def _sso_login(self):
+        # CAS 登录必须绑定 service。当前 pass.neu.edu.cn 对“不带 service 的 POST”
+        # 会直接返回 500，因此先从 IPGW 门户取得当前网络参数，再构造 service。
         try:
-            page = self.session.get(self.PASS_LOGIN_URL, timeout=self.timeout)
+            portal = self.session.get(
+                self.IPGW_PORTAL_URL,
+                timeout=self.timeout,
+                allow_redirects=True,
+            )
+            portal.raise_for_status()
+            portal_query = urlsplit(portal.url).query or "ac_id=1"
+            service_url = self.IPGW_SSO_BASE + portal_query
+
+            page = self.session.get(
+                self.PASS_LOGIN_URL,
+                params={"service": service_url},
+                timeout=self.timeout,
+            )
             page.raise_for_status()
         except requests.RequestException as exc:
             return False, f"访问统一身份认证失败：{exc}"
@@ -189,25 +204,39 @@ class IpgwLogin:
             "lt": lt,
             "execution": execution,
             "_eventId": "submit",
+            # 当前登录页还会随表单提交这三个隐藏字段；保持与浏览器行为一致。
+            "t_un": "",
+            "t_pd": "",
+            "t_c": "",
         }
 
         try:
             response = self.session.post(
                 self.PASS_LOGIN_URL,
+                params={"service": service_url},
                 data=data,
-                headers={"Referer": self.PASS_LOGIN_URL},
+                headers={"Referer": page.url},
                 timeout=self.timeout,
-                allow_redirects=True,
+                allow_redirects=False,
             )
-            response.raise_for_status()
         except requests.RequestException as exc:
             return False, f"提交统一身份认证失败：{exc}"
+
+        # 正确账号通常返回 302，由 CAS 携带 ticket 跳转回 service。
+        if response.status_code in (301, 302, 303, 307, 308):
+            return True, None
+
+        if response.status_code >= 400:
+            return False, (
+                f"提交统一身份认证失败：HTTP {response.status_code}，"
+                f"返回：{response.text.strip()[:200]}"
+            )
 
         _, _, error_text = self._parse_login_page(response.text)
         if error_text:
             return False, f"统一身份认证失败：{error_text}"
 
-        return True, None
+        return False, f"统一身份认证未返回预期跳转，HTTP {response.status_code}"
 
     @staticmethod
     def _find_sso_ticket_url(response):
