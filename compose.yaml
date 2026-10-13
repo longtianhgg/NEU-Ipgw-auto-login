@@ -2,7 +2,8 @@ name: neu-login
 
 services:
   neu-login:
-    image: ${NEU_IMAGE:-neu-login:2.0.0}
+    image: ${NEU_IMAGE:-neu-login:2.0.0-arm64}
+    platform: linux/arm64
     build:
       context: .
       dockerfile: Dockerfile

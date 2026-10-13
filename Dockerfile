@@ -1,5 +1,6 @@
 ARG RUST_VERSION=1.96.0
-FROM rust:${RUST_VERSION}-slim-bookworm AS builder
+ARG TARGET_PLATFORM=linux/arm64
+FROM --platform=${TARGET_PLATFORM} rust:${RUST_VERSION}-slim-bookworm AS builder
 
 WORKDIR /app
 RUN apt-get update \
@@ -12,7 +13,7 @@ COPY web ./web
 RUN cargo build --release --locked \
     && install -m 755 target/release/neu-login /usr/local/bin/neu-login
 
-FROM debian:bookworm-slim AS runtime
+FROM --platform=${TARGET_PLATFORM} debian:bookworm-slim AS runtime
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl libgcc-s1 tzdata \

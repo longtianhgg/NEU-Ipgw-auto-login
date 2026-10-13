@@ -5,9 +5,13 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 project_dir=$(dirname -- "$script_dir")
 mode=system
 if [[ ${1:-} == --user ]]; then mode=user; shift; fi
-binary=${1:-"$project_dir/target/release/neu-login"}
+case $(uname -m) in
+  aarch64|arm64) ;;
+  *) echo '此分支的安装包仅适用于 ARM64 Linux；x86_64 请使用 rust_x86 分支。' >&2; exit 1 ;;
+esac
+binary=${1:-"${CARGO_TARGET_DIR:-$project_dir/target}/aarch64-unknown-linux-gnu/release/neu-login"}
 if [[ ! -x "$binary" && -x "$project_dir/neu-login" ]]; then binary="$project_dir/neu-login"; fi
-if [[ ! -x "$binary" ]]; then echo "找不到可执行文件：请先 cargo build --release --locked，或指定二进制路径。" >&2; exit 1; fi
+if [[ ! -x "$binary" ]]; then echo "找不到可执行文件：请先 cargo build --release --locked --target aarch64-unknown-linux-gnu，或指定二进制路径。" >&2; exit 1; fi
 if [[ $mode == system && $EUID != 0 ]]; then echo "系统服务安装需要管理员权限：sudo $0 [二进制路径]；也可使用 --user 安装用户服务。" >&2; exit 1; fi
 command -v systemctl >/dev/null || { echo '此安装脚本需要 systemd。' >&2; exit 1; }
 if [[ $mode == system ]]; then
