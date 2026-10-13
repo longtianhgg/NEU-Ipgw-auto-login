@@ -1,0 +1,32 @@
+name: neu-login
+
+services:
+  neu-login:
+    image: ${NEU_IMAGE:-neu-login:2.0.0}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Linux host networking authenticates the Docker host's campus network exit.
+    network_mode: host
+    environment:
+      NEU_LISTEN: ${NEU_LISTEN:-0.0.0.0:11099}
+      NEU_DATA_DIR: /data
+      TZ: Asia/Shanghai
+      RUST_LOG: neu_login=info
+    volumes:
+      - neu_data:/data
+      # Optional server/NAS images: also set NEU_IMAGE_DIR: /backgrounds above.
+      # - /srv/neu-backgrounds:/backgrounds:ro
+    restart: unless-stopped
+    stop_grace_period: 15s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+
+volumes:
+  neu_data:

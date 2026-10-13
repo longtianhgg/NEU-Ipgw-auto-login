@@ -1,0 +1,22 @@
+/target/
+/data/
+/release/
+*.db
+*.db-shm
+*.db-wal
+*.key
+config.ini
+
+# Local environment metadata and credentials
+/.agents/
+/.codex/
+/.aws/
+.env
+.env.*
+!.env.example
+
+# Editor and operating system files
+/.idea/
+/.vscode/
+.DS_Store
+*~

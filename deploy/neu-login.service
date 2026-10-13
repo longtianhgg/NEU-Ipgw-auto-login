@@ -1,0 +1,33 @@
+[Unit]
+Description=NEU Campus Network Web Manager
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=neu-login
+Group=neu-login
+StateDirectory=neu-login
+StateDirectoryMode=0700
+WorkingDirectory=/var/lib/neu-login
+Environment=NEU_LISTEN=0.0.0.0:11099
+Environment=NEU_DATA_DIR=/var/lib/neu-login
+Environment=TZ=Asia/Shanghai
+Environment=RUST_LOG=neu_login=info
+EnvironmentFile=-/etc/neu-login.env
+ExecStart=/usr/local/bin/neu-login
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

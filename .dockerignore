@@ -1,0 +1,18 @@
+# Only Rust sources and embedded web assets enter the build context.
+**
+!Dockerfile
+!.dockerignore
+!Cargo.toml
+!Cargo.lock
+!src/
+!src/**
+!web/
+!web/**
+
+# Never include local credentials or databases, even inside an allowed directory.
+**/.env
+**/.env.*
+**/*.key
+**/*.db
+**/*.db-shm
+**/*.db-wal

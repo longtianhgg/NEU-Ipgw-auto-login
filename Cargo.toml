@@ -1,0 +1,35 @@
+[package]
+name = "neu-login"
+version = "2.0.0"
+edition = "2024"
+description = "NEU campus network web manager"
+license = "MIT"
+
+[dependencies]
+aes-gcm = "0.10"
+anyhow = "1"
+async-stream = "0.3"
+axum = { version = "0.8", features = ["multipart"] }
+base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive", "env"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "cookies", "json", "form"] }
+rsa = "0.9"
+rusqlite = { version = "0.40", features = ["bundled"] }
+scraper = "0.24"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+url = "2"
+zeroize = "1"
+
+[dev-dependencies]
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
+
+[profile.release]
+lto = "thin"
+strip = true

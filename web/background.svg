@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1200" viewBox="0 0 1920 1200">
+<defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#668ce0"/><stop offset=".4" stop-color="#aaa6d3"/><stop offset=".7" stop-color="#edb2b4"/><stop offset="1" stop-color="#ffc39e"/></linearGradient><linearGradient id="lake" x2="0" y2="1"><stop stop-color="#7d9dcb"/><stop offset=".4" stop-color="#456b9e"/><stop offset="1" stop-color="#173f70"/></linearGradient><linearGradient id="mount" x2="0" y2="1"><stop stop-color="#6586b1"/><stop offset="1" stop-color="#315780"/></linearGradient><radialGradient id="sun"><stop stop-color="#ffefcc" stop-opacity=".9"/><stop offset=".4" stop-color="#ffc09f" stop-opacity=".4"/><stop offset="1" stop-color="#ffadbd" stop-opacity="0"/></radialGradient><filter id="soft"><feGaussianBlur stdDeviation="17"/></filter><filter id="cloud"><feGaussianBlur stdDeviation="7"/></filter><pattern id="water" width="160" height="32" patternUnits="userSpaceOnUse"><path d="M8 10h72m25 12h36M0 31h28" stroke="#e1bcba" stroke-opacity=".24" stroke-width="2"/></pattern></defs>
+<path fill="url(#sky)" d="M0 0h1920v790H0z"/><ellipse cx="1430" cy="475" rx="520" ry="410" fill="url(#sun)"/>
+<g fill="#ffd1b4" opacity=".65" filter="url(#cloud)"><path d="m930 140 100-16 30 15 130-33 92 28 148-10-81 25-126 4-91-9-84 18-143-8Z"/><path d="m1420 232 125-19 61 15 91-11 158 34-157 2-88-11-92 12Z"/><path d="m80 360 169-28 104 32 95-8 166 36-245 11-148-23-143 4Z"/></g>
+<path d="m0 716 162-225 91 72 224-338 198 267 118-155 162 173 157-119 157 118 198-221 214 294 139-172v309H0Z" fill="#939dc2"/>
+<path d="m306 476 171-251 198 267-98-73-50 18-62-68-31 13-28-70-48 67-51 22Z" fill="#e3dce7" opacity=".86"/>
+<path d="m1245 476 222-188 214 294-92-42-72-133-42 31-29-75-77 68-62-1Z" fill="#e9d5de" opacity=".73"/>
+<path d="m0 736 210-166 96 89 194-89 183 125 124-58 169 64 147-80 248 111 170-130 137 132 142-97v193H0Z" fill="url(#mount)"/>
+<path d="M0 755h1920v445H0Z" fill="url(#lake)"/><ellipse cx="1400" cy="928" rx="305" ry="210" fill="url(#sun)" opacity=".55" filter="url(#soft)"/>
+<path d="M0 780h1920v420H0Z" fill="url(#water)"/>
+<g fill="#264a73"><path d="m0 803 80-44 123 22 122 51-47 76-278 89Z"/><path d="m1920 745-107 27-159 88 87 58 179 98Z"/></g>
+<g fill="#244965" opacity=".95"><path d="m66 638 25-58 25 58h-16l24 33h-22l26 41H64l27-41H70l23-33Zm53 28 21-53 22 53h-14l25 34h-22l28 46h-69l26-46h-20l20-34Zm-115 35 24-67 25 67H36l30 47H42l34 54H0l33-54H10l23-47Z"/><path d="m1806 703 24-60 24 60h-14l23 37h-21l26 43h-76l27-43h-22l25-37Zm64-26 23-64 27 64h-18l27 42h-23l29 47h-78l31-47h-21l22-42Z"/></g>
+<g fill="#d2a0a8" opacity=".4"><path d="m156 912 209 34 160 10-185 10-201-32Zm906 87 267 9 163-15-130 33-315-9Zm-502 140 360-16 317 10-389 9Z"/></g>
+</svg>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#477ec0"><meta name="description" content="东北大学校园网连接管理：保存账号、检测状态、一键登录与注销。">
+  <title>NEU 校园网</title><link rel="icon" href="/assets/logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/style.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+<svg class="svg-library" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v11h-6v-7H9v7H3z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 22v-2a8 8 0 0 1 16 0v2"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 1.5-3.3c-.9-1-.2-2.7 1.2-2.7H18a4 4 0 0 0 4-4c0-4.4-4.5-8-10-8Z"/><circle cx="7" cy="9" r=".6"/><circle cx="12" cy="6.5" r=".6"/><circle cx="17" cy="9" r=".6"/><circle cx="6.5" cy="14" r=".6"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="m9 3-.6 2-2 .9-1.9-.5-2 3.4 1.4 1.5v2.3L2.5 14l2 3.4 2-.4 2 1 .5 2h4l.6-2 2-1 1.9.4 2-3.4-1.4-1.4v-2.3l1.4-1.5-2-3.4-2 .5-2-.9L13 3z"/><circle cx="11" cy="11.5" r="3"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M5.4 7a8 8 0 0 1 13.8-1L20 9M4 15l.8 3A8 8 0 0 0 18.6 17"/></symbol>
+  <symbol id="i-login" viewBox="0 0 24 24"><path d="M13 3h7v18h-7M3 12h12m-5-5 5 5-5 5"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M11 3H4v18h7m1-9h9m-5-5 5 5-5 5"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l5-1L21 7l-4-4L5 15z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M19 10c0 5-7 12-7 12S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="2"/><path d="m3 17 6-6 4 4 3-3 5 5"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="20" r="1"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.1"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/></symbol>
+ </defs>
+</svg>
+<div class="wallpaper" aria-hidden="true"></div><div class="wallpaper-shade" aria-hidden="true"></div>
+<div class="app-shell">
+ <aside class="sidebar glass">
+  <a class="brand" href="#home" aria-label="NEU 校园网首页"><img src="/assets/logo.svg" alt="" width="84" height="84"><strong>NEU 校园网</strong><span>东北大学 · 连接每一天</span></a>
+  <nav aria-label="主导航">
+   <button class="nav-item active" data-page="home" aria-current="page"><svg><use href="#i-home"/></svg><span>首页</span></button>
+   <button class="nav-item" data-page="account"><svg><use href="#i-user"/></svg><span>账号设置</span></button>
+   <button class="nav-item" data-page="appearance"><svg><use href="#i-palette"/></svg><span>外观设置</span></button>
+   <button class="nav-item" data-page="advanced"><svg><use href="#i-settings"/></svg><span>高级设置</span></button>
+  </nav>
+  <div class="sidebar-footer"><strong>NEU 校园网</strong><span>v2.0.0 · Rust</span><p>为更便捷的校园生活</p><div class="service-indicator"><i id="service-dot"></i><span id="service-label">正在连接服务</span></div></div>
+ </aside>
+ <main class="workspace">
+  <header class="workspace-header"><div><span class="eyebrow">CAMPUS CONNECTION</span><h1 id="page-title">连接，让生活更简单</h1></div><span class="date-label" id="today"></span></header>
+  <section id="page-home" class="page active" aria-label="校园网首页">
+   <div class="dashboard-grid">
+    <div class="main-left">
+     <section class="status-card glass" aria-labelledby="status-card-title">
+      <div class="card-top"><h2 id="status-card-title">校园网状态 <i id="status-dot" class="status-dot unknown"></i></h2><button class="pill-button operation-button" id="refresh-button"><svg><use href="#i-refresh"/></svg><span>刷新状态</span></button></div>
+      <div class="connection-hero"><div id="connection-orb" class="connection-orb unknown"><div><svg><use href="#i-wifi"/></svg></div></div><h3 id="connection-title">检测中</h3><p id="connection-message">正在获取校园网状态</p><span class="busy-label" id="busy-label" hidden></span></div>
+      <div class="status-stats"><div class="stat"><span class="stat-icon"><svg><use href="#i-user"/></svg></span><div><span>当前账号</span><strong id="stat-account">未设置</strong></div></div><div class="stat"><span class="stat-icon"><svg><use href="#i-clock"/></svg></span><div><span id="duration-label">已在线时长</span><strong id="stat-duration">—</strong></div></div><div class="stat"><span class="stat-icon"><svg><use href="#i-pin"/></svg></span><div><span>最近检测</span><strong id="stat-check">—</strong></div></div></div>
+      <p class="network-detail" id="network-detail">认证的是运行此服务的设备所使用的网络出口</p>
+     </section>
+     <section class="history-card glass" aria-labelledby="history-title"><div class="card-top"><h2 id="history-title">最近操作记录</h2><button class="text-button" id="all-logs">查看全部 <span aria-hidden="true">↗</span></button></div><div id="recent-logs" class="log-list"><p class="empty-state">还没有操作记录</p></div></section>
+    </div>
+    <div class="main-right">
+     <button class="action-card login-card glass operation-button" id="login-button"><span class="action-icon"><svg><use href="#i-login"/></svg></span><span><strong>登录校园网</strong><small>使用保存的账号，一键登录</small></span><svg class="chevron"><use href="#i-chevron"/></svg></button>
+     <button class="action-card logout-card glass operation-button" id="logout-button"><span class="action-icon"><svg><use href="#i-logout"/></svg></span><span><strong>退出校园网</strong><small>主动下线当前认证</small></span><svg class="chevron"><use href="#i-chevron"/></svg></button>
+     <section class="account-card glass" aria-labelledby="account-card-title"><div class="card-top"><h2 id="account-card-title">账号信息</h2><button class="text-button" data-page="account"><svg><use href="#i-edit"/></svg>编辑</button></div><dl class="account-details"><div><dt><svg><use href="#i-user"/></svg>学号</dt><dd id="home-account">尚未设置</dd></div><div><dt><svg><use href="#i-lock"/></svg>密码</dt><dd class="password-cell"><span id="home-password">尚未设置</span><button class="icon-button" id="reveal-password" aria-label="显示已保存密码" aria-pressed="false"><svg><use href="#i-eye"/></svg></button></dd></div><div><dt><svg><use href="#i-pin"/></svg>认证地址</dt><dd id="home-auth">自动（默认配置）</dd></div></dl></section>
+     <section class="quick-card glass" aria-labelledby="quick-title"><h2 id="quick-title">快捷设置</h2><button class="quick-row" id="background-button"><span class="quick-icon purple"><svg><use href="#i-image"/></svg></span><span><strong>更换背景</strong><small>本地上传或选择服务器图片</small></span><svg class="chevron"><use href="#i-chevron"/></svg></button><button class="quick-row" data-page="appearance"><span class="quick-icon blue"><svg><use href="#i-palette"/></svg></span><span><strong>外观设置</strong><small>透明度、模糊效果、主题模式</small></span><svg class="chevron"><use href="#i-chevron"/></svg></button><button class="quick-row" data-page="advanced"><span class="quick-icon amber"><svg><use href="#i-clock"/></svg></span><span><strong>定时刷新</strong><small id="refresh-summary">当前间隔 15 秒</small></span><svg class="chevron"><use href="#i-chevron"/></svg></button></section>
+    </div>
+   </div>
+  </section>
+  <section id="page-account" class="page" aria-labelledby="account-title" hidden>
+   <div class="settings-layout"><section class="settings-card glass"><div class="section-heading"><span class="section-icon"><svg><use href="#i-user"/></svg></span><div><h2 id="account-title">账号设置</h2><p>保存统一身份认证账号，随时一键连接。</p></div></div><form id="account-form"><label for="username">学号 / 统一身份认证账号</label><input id="username" name="username" autocomplete="username" maxlength="128" placeholder="请输入你的学号" required><label for="password">密码</label><div class="input-with-button"><input id="password" name="password" type="password" autocomplete="new-password" maxlength="512" placeholder="请输入密码"><button type="button" class="icon-button" id="input-password-toggle" aria-label="显示输入的密码"><svg><use href="#i-eye"/></svg></button></div><p class="field-help" id="password-help">首次保存需要填写密码。</p><div class="form-actions"><button class="primary-button" type="submit"><svg><use href="#i-check"/></svg>保存账号</button></div></form></section><aside class="note-card glass"><svg class="large-icon"><use href="#i-info"/></svg><h3>你的连接，随时掌握</h3><p>账号保存后会用于此设备的校园网认证。修改账号不会自动登录，也不会注销当前连接。</p><p>密码在服务器加密保存，不会保存在浏览器本地存储中。</p><button class="text-button" data-page="home">返回首页 →</button></aside></div>
+  </section>
+  <section id="page-appearance" class="page" aria-labelledby="appearance-title" hidden>
+   <section class="settings-card glass"><div class="section-heading"><span class="section-icon"><svg><use href="#i-palette"/></svg></span><div><h2 id="appearance-title">外观设置</h2><p>让你的校园网面板，有一点自己的风格。</p></div></div><form id="appearance-form"><fieldset><legend>主题模式</legend><div class="theme-options"><label><input type="radio" name="theme" value="light"><span>☀ 浅色</span></label><label><input type="radio" name="theme" value="dark"><span>☾ 深色</span></label><label><input type="radio" name="theme" value="system"><span>◐ 跟随系统</span></label></div></fieldset><div class="range-field"><label for="opacity">面板不透明度 <output id="opacity-output" for="opacity">65%</output></label><input id="opacity" type="range" min="15" max="95" value="65"><p class="field-help">调低后背景更通透，调高后文字更清晰。</p></div><div class="range-field"><label for="blur">背景模糊 <output id="blur-output" for="blur">18 px</output></label><input id="blur" type="range" min="0" max="40" value="18"></div><div class="background-setting"><div><strong>背景图片</strong><p class="field-help">上传喜欢的风景，或选择服务器上的图片。</p></div><button type="button" class="secondary-button" id="appearance-background"><svg><use href="#i-image"/></svg>更换背景</button></div><div class="form-actions"><button type="submit" class="primary-button">保存外观</button><button type="button" class="secondary-button" id="appearance-reset">恢复默认外观</button><span class="field-help">滑块实时预览，保存后持久生效。</span></div></form></section>
+  </section>
+  <section id="page-advanced" class="page" aria-labelledby="advanced-title" hidden>
+   <section class="settings-card glass"><div class="section-heading"><span class="section-icon"><svg><use href="#i-settings"/></svg></span><div><h2 id="advanced-title">高级设置</h2><p>管理检测频率与认证参数。</p></div></div><form id="advanced-form"><div class="switch-row"><div><strong>定时检测状态</strong><p class="field-help">在服务器后台执行，关闭网页后仍会检测；不会自动登录。</p></div><label class="switch"><input id="auto-refresh" type="checkbox"><span></span><span class="sr-only">启用定时检测</span></label></div><div class="form-grid"><div><label for="refresh-interval">检测间隔（秒）</label><input id="refresh-interval" type="number" min="5" max="3600" required></div><div><label for="request-timeout">请求超时（秒）</label><input id="request-timeout" type="number" min="2" max="60" required></div></div><label for="auth-mode">认证地址配置</label><select id="auth-mode"><option value="auto">自动（东北大学默认配置）</option><option value="custom">自定义认证参数</option></select><div id="custom-auth" hidden><label for="cas-url">统一身份认证登录地址（HTTPS）</label><input id="cas-url" type="url" placeholder="https://pass.neu.edu.cn/tpass/login"><label for="ipgw-url">校园网服务器地址（HTTPS）</label><input id="ipgw-url" type="url" placeholder="https://ipgw.neu.edu.cn"><label for="ac-id">门户 ac_id</label><input id="ac-id" type="number" min="1" max="999"><label for="rsa-key">RSA 公钥（Base64 或 PEM）</label><textarea id="rsa-key" rows="5" spellcheck="false"></textarea><p class="field-help">自动模式从门户读取网络参数；自定义参数仅在自定义模式下使用。</p></div><div class="form-actions"><button class="primary-button" type="submit">保存高级设置</button><button class="secondary-button" type="button" id="advanced-reset">恢复默认认证设置</button></div></form></section>
+  </section>
+  <footer class="workspace-footer"><span>东北大学校园网 · 更便捷的校园生活</span><span>本机服务 · 手动认证</span></footer>
+ </main>
+</div>
+<dialog id="background-dialog" class="modal glass"><div class="card-top"><div><h2>挑一张喜欢的背景</h2><p class="field-help">让每一次连接，都有好风景。</p></div><button class="icon-button close-dialog" aria-label="关闭背景设置"><svg><use href="#i-close"/></svg></button></div><form id="upload-form" class="upload-area"><svg><use href="#i-upload"/></svg><strong>上传本地图片</strong><p>PNG、JPEG、WebP · 最大 10 MB</p><label class="secondary-button" for="background-file">选择图片</label><input id="background-file" type="file" accept="image/png,image/jpeg,image/webp" class="sr-only"><span id="upload-progress" hidden>正在上传…</span></form><div class="card-top background-subtitle"><h3>可用背景</h3><button class="text-button" id="background-reset">恢复默认</button></div><p class="field-help" id="library-hint"></p><div id="background-gallery" class="background-gallery"></div></dialog>
+<dialog id="logs-dialog" class="modal logs-modal glass"><div class="card-top"><div><h2>操作记录</h2><p class="field-help">最近 1000 条连接和设置记录。</p></div><button class="icon-button close-dialog" aria-label="关闭操作记录"><svg><use href="#i-close"/></svg></button></div><div id="full-logs" class="log-list"></div><div class="pagination"><button class="secondary-button" id="logs-prev">上一页</button><span id="logs-page">第 1 页</span><button class="secondary-button" id="logs-next">下一页</button></div></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
