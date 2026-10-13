@@ -67,6 +67,8 @@ export AR_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-ar
 
 Dockerfile 使用多阶段构建：在官方 Rust 1.96.0 镜像中编译，运行镜像仅保留二进制、CA 证书、健康检查和时区所需组件。无需在目标主机安装 Rust，也不依赖目标主机的 glibc 版本；构建和运行阶段均使用 Debian Bookworm。
 
+默认最多使用两个 Rust 编译任务，适用于 2 GB 内存的 RK3288 开发板。内存更充足时可用 `docker buildx build --platform linux/arm/v7 --load --build-arg CARGO_BUILD_JOBS=4 -t neu-login:2.0.0-arm32 .` 调整并行数。
+
 Dockerfile、Compose 和导出脚本默认构建 `linux/arm/v7`，镜像标签为 `neu-login:2.0.0-arm32`。目标主机需要 ARMv7 Linux Docker。ARMv7 主机原生构建；在 x86_64 主机构建需要支持 ARMv7 的 Buildx/QEMU 构建器，模拟构建会较慢。[Docker 多平台构建说明](https://docs.docker.com/build/building/multi-platform/)
 
 首次构建需联网下载基础镜像、系统包和 Cargo 依赖；目标主机加载导出的镜像后可离线启动。
@@ -102,6 +104,8 @@ docker compose up -d
 ```
 
 脚本构建 `neu-login:2.0.0-arm32` 并导出到 `release/`，同时检查镜像平台，拒绝导出非 ARMv7 镜像：
+
+如果镜像已通过其他构建命令生成，可以使用 `sudo ./scripts/docker-export.sh --skip-build` 直接导出，避免再次编译；仍会检查已有镜像是否为 ARMv7。
 
 ```text
 release/neu-login-2.0.0-docker-linux-arm-v7.tar.gz
