@@ -73,6 +73,8 @@ Dockerfile、Compose 和导出脚本默认构建 `linux/arm/v7`，镜像标签�
 
 ### 本机构建和启动
 
+构建需要 Docker Buildx 插件，ARM32 分支不使用经典构建器回退。先运行 `docker buildx version`；使用 sudo 构建时必须验证 `sudo docker buildx version`，普通用户目录中的插件不一定对 root 可见。Dockerfile 在安装系统包前检查基础镜像的 `armhf` 架构。
+
 ```bash
 docker compose build
 docker compose up -d
@@ -125,7 +127,32 @@ docker run -d --name neu-login --restart unless-stopped --network host \
   --platform linux/arm/v7 neu-login:2.0.0-arm32
 ```
 
-导出脚本使用 `docker buildx build --platform linux/arm/v7 --load`；缺少 Buildx 插件时使用经典多阶段构建，同样指定 ARMv7 平台。在 x86_64 主机使用经典构建前，须由管理员配置 ARMv7 binfmt/QEMU；若出现 `exec format error`，检查构建器的 ARMv7 模拟支持。通过 sudo 执行时，生成的文件归调用用户所有，便于复制。
+导出脚本使用 `docker buildx build --platform linux/arm/v7 --load`；缺少 Buildx 时立即报错，不进入经典构建器。通过 sudo 执行时，生成的文件归调用用户所有，便于复制。
+
+在 x86_64 主机首次配置 Buildx（以下使用 sudo，后续构建也使用 sudo）：
+
+```bash
+# 已配置 Docker 官方 apt 源时，安装其插件包：
+sudo apt-get update
+sudo apt-get install docker-buildx-plugin
+sudo docker buildx version
+
+# 首次创建；已有同名构建器时直接 use：
+sudo docker buildx create --name neu-arm32-builder --driver docker-container --use --bootstrap
+# 后续使用：sudo docker buildx use neu-arm32-builder
+sudo docker buildx inspect --bootstrap
+```
+
+确认 `Platforms` 包含 `linux/arm/v7` 后运行 `sudo ./scripts/docker-export.sh`。若没有 ARMv7 平台或出现 `exec format error`，注册模拟器后重新检查：
+
+```bash
+sudo docker run --privileged --rm tonistiigi/binfmt --install arm
+sudo docker buildx inspect --bootstrap
+```
+
+如果系统没有配置 Docker 官方 apt 源，按 [Buildx 安装说明](https://github.com/docker/buildx#installing) 安装插件；使用 sudo 时可安装到系统插件目录 `/usr/local/lib/docker/cli-plugins/docker-buildx`，权限设为 0755。仅安装插件即可，不需要重装 Docker Engine 或删除现有镜像、数据卷。
+
+若日志在 ARM32 构建期间下载 `amd64` 软件包，随后提示 `does not provide the specified platform (linux/arm/v7)`，说明基础镜像平台不匹配，应切换至上述 Buildx 构建器；重新打标签不能把 x86 镜像转换成 ARM32。
 
 使用 Buildx 手动构建时：
 

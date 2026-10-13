@@ -13,17 +13,17 @@ output_dir=${2:-"$project_dir/release"}
 for tool in docker gzip sha256sum; do
   command -v "$tool" >/dev/null || { echo "缺少命令：$tool" >&2; exit 1; }
 done
+if ! docker buildx version >/dev/null 2>&1; then
+  echo 'ARM32 镜像构建需要 Docker Buildx 插件，经典构建器可能选错基础镜像架构，已停止构建。' >&2
+  echo '请安装 Buildx，并确认实际执行脚本的用户可运行 docker buildx version（使用 sudo 时验证 sudo docker buildx version）。' >&2
+  echo '安装及 ARMv7 构建器配置步骤见 README.md。' >&2
+  exit 1
+fi
 if ! docker info >/dev/null 2>&1; then
   echo '无法访问 Docker daemon。请确认 Docker 已启动且当前用户有访问权限，或使用 sudo 执行此脚本。' >&2
   exit 1
 fi
-
-if docker buildx version >/dev/null 2>&1; then
-  docker buildx build --platform linux/arm/v7 --load --tag "$image" "$project_dir"
-else
-  echo '未检测到 Buildx 插件，使用兼容的经典多阶段构建。'
-  DOCKER_BUILDKIT=0 docker build --platform linux/arm/v7 --tag "$image" "$project_dir"
-fi
+docker buildx build --platform linux/arm/v7 --load --tag "$image" "$project_dir"
 platform=$(docker image inspect --format '{{.Os}}-{{.Architecture}}-{{.Variant}}' "$image")
 if [[ $platform != linux-arm-v7 ]]; then echo "镜像必须为 linux-arm-v7，实际为：$platform" >&2; exit 1; fi
 

@@ -3,6 +3,7 @@ ARG TARGET_PLATFORM=linux/arm/v7
 FROM --platform=${TARGET_PLATFORM} rust:${RUST_VERSION}-slim-bookworm AS builder
 
 WORKDIR /app
+RUN test "$(dpkg --print-architecture)" = armhf
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential cmake pkg-config ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -15,6 +16,7 @@ RUN cargo build --release --locked \
 
 FROM --platform=${TARGET_PLATFORM} debian:bookworm-slim AS runtime
 
+RUN test "$(dpkg --print-architecture)" = armhf
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl libgcc-s1 tzdata \
     && rm -rf /var/lib/apt/lists/* \
