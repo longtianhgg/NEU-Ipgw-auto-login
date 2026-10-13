@@ -7,7 +7,7 @@ project_dir=$(dirname -- "$script_dir")
 version=$(sed -n 's/^version = "\([^"]*\)"$/\1/p' "$project_dir/Cargo.toml")
 if [[ -z $version ]]; then echo '无法读取 Cargo.toml 中的版本。' >&2; exit 1; fi
 if [[ $# -gt 2 ]]; then echo '用法：docker-export.sh [镜像标签] [输出目录]' >&2; exit 1; fi
-image=${1:-"neu-login:$version-arm64"}
+image=${1:-"neu-login:$version-arm32"}
 output_dir=${2:-"$project_dir/release"}
 
 for tool in docker gzip sha256sum; do
@@ -19,13 +19,13 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 if docker buildx version >/dev/null 2>&1; then
-  docker buildx build --platform linux/arm64 --load --tag "$image" "$project_dir"
+  docker buildx build --platform linux/arm/v7 --load --tag "$image" "$project_dir"
 else
   echo '未检测到 Buildx 插件，使用兼容的经典多阶段构建。'
-  DOCKER_BUILDKIT=0 docker build --platform linux/arm64 --tag "$image" "$project_dir"
+  DOCKER_BUILDKIT=0 docker build --platform linux/arm/v7 --tag "$image" "$project_dir"
 fi
-platform=$(docker image inspect --format '{{.Os}}-{{.Architecture}}' "$image")
-if [[ $platform != linux-arm64 ]]; then echo "镜像必须为 linux-arm64，实际为：$platform" >&2; exit 1; fi
+platform=$(docker image inspect --format '{{.Os}}-{{.Architecture}}-{{.Variant}}' "$image")
+if [[ $platform != linux-arm-v7 ]]; then echo "镜像必须为 linux-arm-v7，实际为：$platform" >&2; exit 1; fi
 
 output_created=false
 if [[ ! -d $output_dir ]]; then output_created=true; fi

@@ -1,5 +1,5 @@
 ARG RUST_VERSION=1.96.0
-ARG TARGET_PLATFORM=linux/arm64
+ARG TARGET_PLATFORM=linux/arm/v7
 FROM --platform=${TARGET_PLATFORM} rust:${RUST_VERSION}-slim-bookworm AS builder
 
 WORKDIR /app
