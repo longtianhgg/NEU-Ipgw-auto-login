@@ -320,6 +320,7 @@ cargo test --locked --target armv7-unknown-linux-gnueabihf
 QEMU 用于验证 ARMv7 指令与测试流程，实际校园网认证仍需在目标 ARMv7 设备填写账号后验证。
 
 - 网页不可达：检查服务、端口占用、防火墙和局域网隔离。
+- 脚本报 `invalid option name`、`pipefail` 或解释器不存在：检查是否被转成 Windows CRLF 换行。在项目目录运行 `sed -i 's/\r$//' scripts/*.sh` 和 `chmod +x scripts/*.sh`，再执行 `sudo ./scripts/docker-export.sh`。脚本需要 Bash，不能用 `sh` 执行。仓库的 `.gitattributes` 已固定 Shell 脚本为 LF 换行；复制文件或解压时也应保留此格式。
 - 检测失败：检查运行设备的校园网、DNS、TLS 和认证服务器可达性。
 - 已在线但没保存账号：网关按当前出口返回状态；保存账号后才能在掉线时手动登录。
 - 登录页面变化：检查学校的页面、公钥、SSO 参数；高级设置可覆盖认证参数。
