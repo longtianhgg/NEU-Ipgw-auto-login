@@ -1,5 +1,2 @@
-*.sh text eol=lf
-Cargo.toml text eol=lf
-Cargo.lock text eol=lf
-Dockerfile text eol=lf
-*.yaml text eol=lf
+# Preserve Linux line endings when checking out on Windows or copying to a board.
+* text=auto eol=lf

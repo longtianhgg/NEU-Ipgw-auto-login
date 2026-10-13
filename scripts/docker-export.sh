@@ -34,7 +34,23 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 if [[ $skip_build == false ]]; then
-  docker buildx build --platform linux/arm/v7 --load --tag "$image" "$project_dir"
+  build_jobs=${NEU_BUILD_JOBS:-2}
+  if [[ ! $build_jobs =~ ^[1-9][0-9]*$ ]]; then
+    echo 'NEU_BUILD_JOBS 必须是正整数。' >&2
+    exit 1
+  fi
+  build_options=(--platform linux/arm/v7 --load --tag "$image" --build-arg "CARGO_BUILD_JOBS=$build_jobs")
+  if [[ -n ${NEU_BUILD_NETWORK:-} ]]; then
+    build_options+=(--network "$NEU_BUILD_NETWORK")
+  fi
+  # Forward predefined build proxy variables by name, without printing their values.
+  # These variables are used only during the build, not in the runtime image.
+  for proxy_variable in HTTP_PROXY HTTPS_PROXY NO_PROXY http_proxy https_proxy no_proxy; do
+    if [[ -n ${!proxy_variable:-} ]]; then
+      build_options+=(--build-arg "$proxy_variable")
+    fi
+  done
+  docker buildx build "${build_options[@]}" "$project_dir"
 fi
 platform=$(docker image inspect --format '{{.Os}}-{{.Architecture}}-{{.Variant}}' "$image")
 if [[ $platform != linux-arm-v7 ]]; then echo "镜像必须为 linux-arm-v7，实际为：$platform" >&2; exit 1; fi

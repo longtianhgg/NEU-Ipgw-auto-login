@@ -20,3 +20,14 @@ config.ini
 /.vscode/
 .DS_Store
 *~
+
+# Build logs and source/image archives belong outside the source repository.
+*.log
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.sha256
+/core
+/core.[0-9]*
+*.core

@@ -22,7 +22,7 @@
 
 ## 构建与本机运行
 
-需要支持 NEON 的 ARMv7 Linux（32 位硬浮点用户空间）、Rust 1.96、C/C++ 编译器、CMake、pkg-config。SQLite 随程序编译，TLS 使用 Rustls，无需 OpenSSL 动态库。本分支已用 QEMU 验证；当前工具链在仅有 VFPv3-D16、禁用 NEON 的 CPU 模拟环境中出现非法指令，因此该环境不在本发布版本的支持范围内。
+需要支持 NEON 的 ARMv7 Linux（32 位硬浮点用户空间）、Rust 1.96、C/C++ 编译器、CMake、pkg-config。SQLite 随程序编译，TLS 使用 Rustls，无需 OpenSSL 动态库。本分支已通过 QEMU 测试和 RK3288 真机 Docker 构建、运行验证；当前工具链在仅有 VFPv3-D16、禁用 NEON 的 CPU 模拟环境中出现非法指令，因此该环境不在本发布版本的支持范围内。
 
 ```bash
 sudo apt-get install build-essential cmake pkg-config ca-certificates
@@ -73,6 +73,69 @@ Dockerfile、Compose 和导出脚本默认构建 `linux/arm/v7`，镜像标签�
 
 首次构建需联网下载基础镜像、系统包和 Cargo 依赖；目标主机加载导出的镜像后可离线启动。
 
+### RK3288 原生构建与部署
+
+已验证设备环境：RK3288、`armv7l`、32 位 Ubuntu 20.04、Linux 4.4.189、2 GB 内存，Docker 26.1.3、Buildx 0.14.1 和 Compose 2.27.1。Docker Engine 已安装时，使用 Ubuntu 软件源提供的插件包：
+
+```bash
+sudo apt-get update
+sudo apt-get install --no-install-recommends docker-buildx docker-compose-v2
+sudo docker buildx version
+sudo docker compose version
+sudo docker buildx inspect --bootstrap
+```
+
+原生 RK3288 使用默认 `docker` 构建器即可，`Platforms` 应包含 `linux/arm/v7`，无需 QEMU 或另外创建跨架构构建器。已配置 Docker 官方 apt 源的其他系统使用其 `docker-buildx-plugin`、`docker-compose-plugin` 包，包名不要混用。
+
+在项目目录执行：
+
+```bash
+sudo ./scripts/docker-export.sh
+sudo docker image inspect --format '{{.Os}}/{{.Architecture}}/{{.Variant}}' neu-login:2.0.0-arm32
+# 应输出 linux/arm/v7
+
+sudo docker compose up -d --no-build --pull never
+sudo docker compose ps
+curl --noproxy '*' http://127.0.0.1:11099/healthz
+```
+
+访问 `http://开发板IP:11099/`。首次构建包含全部依赖的编译和 release 优化链接，在 RK3288 上可能耗时数十分钟；日志暂时不更新时可用 `top` 查看编译器是否仍占用 CPU，避免中断后重编译。
+
+真机验证包括 ARMv7 镜像平台、非 root 用户 `10001:10001`、只读根文件系统、健康接口、内置 HTML/CSS/JavaScript/SVG、账号摘要和默认设置接口，导出的约 32 MB 镜像包已通过 SHA256 校验。真实校园网登录与注销仍需在网页填写账号后验证。
+
+### 构建网络与资源参数
+
+导出脚本支持 `NEU_BUILD_JOBS`（默认 `2`）和可选 `NEU_BUILD_NETWORK`；已设置的 `HTTP_PROXY`、`HTTPS_PROXY`、`NO_PROXY` 及其小写变量仅传入构建阶段，不写入运行镜像。[Docker 构建代理说明](https://docs.docker.com/build/building/variables/#proxy-arguments) 使用 sudo 时应显式传入所需变量：
+
+```bash
+sudo env NEU_BUILD_JOBS=2 ./scripts/docker-export.sh
+
+# 仅当构建下载确实需要宿主机上已有的本地代理时：
+sudo env NEU_BUILD_NETWORK=host HTTPS_PROXY=http://127.0.0.1:18080 ./scripts/docker-export.sh
+```
+
+上例假定代理已经可用，脚本不会安装代理、改写 DNS、修改 Docker 全局代理或重启 Docker。`host` 网络仅用于构建下载，容器运行参数由 Compose 单独管理。Dockerfile 校验基础镜像必须为 `armhf`。
+
+如果 Docker Hub 解析异常或下载超时，可先在网络正常的主机准备官方 Rust 和 Debian 的 ARMv7 基础镜像归档：
+
+```bash
+docker pull --platform linux/arm/v7 rust:1.96.0-slim-bookworm
+docker save -o rust-armv7.tar rust:1.96.0-slim-bookworm
+docker pull --platform linux/arm/v7 debian:bookworm-slim
+docker save -o debian-armv7.tar debian:bookworm-slim
+```
+
+复制两个归档到开发板，再导入并检查平台：
+
+```bash
+sudo docker load -i rust-armv7.tar
+sudo docker load -i debian-armv7.tar
+sudo docker image inspect --format '{{.Os}}/{{.Architecture}}/{{.Variant}}' \
+  rust:1.96.0-slim-bookworm debian:bookworm-slim
+```
+
+归档必须保留这两个标签并提供 `linux/arm/v7` 平台。导入基础镜像后仍需下载系统包与 Cargo 依赖；完整应用镜像导入后则可用 `--no-build --pull never` 离线启动。
+
 ### 本机构建和启动
 
 构建需要 Docker Buildx 插件，ARM32 分支不使用经典构建器回退。先运行 `docker buildx version`；使用 sudo 构建时必须验证 `sudo docker buildx version`，普通用户目录中的插件不一定对 root 可见。Dockerfile 在安装系统包前检查基础镜像的 `armhf` 架构。
@@ -103,9 +166,11 @@ docker compose up -d
 # Docker 需要管理员权限时：sudo ./scripts/docker-export.sh
 ```
 
-脚本构建 `neu-login:2.0.0-arm32` 并导出到 `release/`，同时检查镜像平台，拒绝导出非 ARMv7 镜像：
+脚本构建 `neu-login:2.0.0-arm32` 并导出到 `release/`，同时检查镜像平台，拒绝导出非 ARMv7 镜像。
 
 如果镜像已通过其他构建命令生成，可以使用 `sudo ./scripts/docker-export.sh --skip-build` 直接导出，避免再次编译；仍会检查已有镜像是否为 ARMv7。
+
+生成的文件：
 
 ```text
 release/neu-login-2.0.0-docker-linux-arm-v7.tar.gz
@@ -326,6 +391,7 @@ QEMU 用于验证 ARMv7 指令与测试流程，实际校园网认证仍需在�
 - 网页不可达：检查服务、端口占用、防火墙和局域网隔离。
 - 脚本报 `invalid option name`、`pipefail` 或解释器不存在：检查是否被转成 Windows CRLF 换行。在项目目录运行 `sed -i 's/\r$//' scripts/*.sh` 和 `chmod +x scripts/*.sh`，再执行 `sudo ./scripts/docker-export.sh`。脚本需要 Bash，不能用 `sh` 执行。仓库的 `.gitattributes` 已固定 Shell 脚本为 LF 换行；复制文件或解压时也应保留此格式。
 - 报“无法读取 Cargo.toml 中的版本”：确认项目根目录存在含 `[package]` 和 `version = "2.0.0"` 的 Cargo.toml。旧版脚本只匹配严格的 LF 格式；先执行 `sed -i 's/\r$//' Cargo.toml Cargo.lock Dockerfile compose.yaml` 再重试。新版脚本兼容 CRLF、空格和行尾注释，且仅读取 `[package]` 的版本。
+- 镜像下载超时：确认 Docker Hub 域名的 DNS 和网络可达性；解析到异常地址时仅重试编译无法解决，参照构建网络说明导入基础镜像或使用已有代理。
 - 检测失败：检查运行设备的校园网、DNS、TLS 和认证服务器可达性。
 - 已在线但没保存账号：网关按当前出口返回状态；保存账号后才能在掉线时手动登录。
 - 登录页面变化：检查学校的页面、公钥、SSO 参数；高级设置可覆盖认证参数。
