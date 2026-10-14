@@ -1,0 +1,2 @@
+# Preserve Linux line endings when checking out on Windows or copying to a board.
+* text=auto eol=lf

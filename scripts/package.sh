@@ -4,7 +4,15 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 project_dir=$(dirname -- "$script_dir")
 cd "$project_dir"
 cargo build --release --locked --target aarch64-unknown-linux-gnu
-version=$(sed -n 's/^version = "\([^"]*\)"$/\1/p' Cargo.toml)
+version=$(awk '
+  { sub(/\r$/, "") }
+  /^[[:space:]]*\[/ { package_section = ($0 ~ /^[[:space:]]*\[package\][[:space:]]*(#.*)?$/) }
+  package_section && /^[[:space:]]*version[[:space:]]*=[[:space:]]*"[^"]+"/ {
+    sub(/^[[:space:]]*version[[:space:]]*=[[:space:]]*"/, "")
+    sub(/".*$/, "")
+    print; exit
+  }
+' Cargo.toml)
 if [[ -z $version ]]; then echo '无法读取 Cargo.toml 中的版本。' >&2; exit 1; fi
 binary="${CARGO_TARGET_DIR:-$project_dir/target}/aarch64-unknown-linux-gnu/release/neu-login"
 bundle="neu-login-$version-arm64-linux"

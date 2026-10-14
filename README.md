@@ -67,11 +67,15 @@ export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
 
 Dockerfile 使用多阶段构建：在官方 Rust 1.96.0 镜像中编译，运行镜像仅保留二进制、CA 证书、健康检查和时区所需组件。无需在目标主机安装 Rust，也不依赖目标主机的 glibc 版本；构建和运行阶段均使用 Debian Bookworm。
 
+已同步 `rust_arm32` 真机验证中的通用修复：所有文本文件固定 LF 换行，版本读取兼容 CRLF、空格和行尾注释；构建必须使用 Buildx，基础镜像在安装软件前检查 `arm64` 架构；默认最多两个 Rust 编译任务，支持直接导出已有镜像。ARM64 的目标仍为 `aarch64-unknown-linux-gnu`，不使用 ARM32 的硬浮点或 NEON 安装检查。
+
 Dockerfile、Compose 和导出脚本默认构建 `linux/arm64`，镜像标签为 `neu-login:2.0.0-arm64`。目标主机需要 ARM64 Linux Docker。ARM64 主机原生构建；在 x86_64 主机构建需要支持 ARM64 的 Buildx/QEMU 构建器，模拟构建会较慢。[Docker 多平台构建说明](https://docs.docker.com/build/building/multi-platform/)
 
 首次构建需联网下载基础镜像、系统包和 Cargo 依赖；目标主机加载导出的镜像后可离线启动。
 
 ### 本机构建和启动
+
+构建前验证 `docker buildx version`；使用 sudo 时验证 `sudo docker buildx version`。缺少 Buildx 时脚本立即停止，不回退到可能选错平台的经典构建器。
 
 ```bash
 docker compose build
@@ -101,6 +105,8 @@ docker compose up -d
 
 脚本构建 `neu-login:2.0.0-arm64` 并导出到 `release/`，同时检查镜像平台，拒绝导出非 ARM64 镜像：
 
+已有正确标签的镜像时可运行 `sudo ./scripts/docker-export.sh --skip-build`，跳过编译直接导出；仍会检查 `linux/arm64` 平台。
+
 ```text
 release/neu-login-2.0.0-docker-linux-arm64.tar.gz
 release/neu-login-2.0.0-docker-linux-arm64.tar.gz.sha256
@@ -125,7 +131,52 @@ docker run -d --name neu-login --restart unless-stopped --network host \
   --platform linux/arm64 neu-login:2.0.0-arm64
 ```
 
-导出脚本使用 `docker buildx build --platform linux/arm64 --load`；缺少 Buildx 插件时使用经典多阶段构建，同样指定 ARM64 平台。在 x86_64 主机使用经典构建前，须由管理员配置 ARM64 binfmt/QEMU；若出现 `exec format error`，检查构建器的 ARM64 模拟支持。通过 sudo 执行时，生成的文件归调用用户所有，便于复制。
+导出脚本使用 `docker buildx build --platform linux/arm64 --load`，通过 sudo 执行时生成的文件归调用用户所有。基础镜像的 Debian 架构必须为 `arm64`，误选 `amd64` 或 `armhf` 时会在下载依赖前停止。
+
+### 在当前 x86_64 电脑构建 ARM64 镜像
+
+当前电脑已安装 Buildx。下面的构建器设置和构建命令统一使用 sudo，确保使用同一用户的 Buildx 配置。在项目目录执行：
+
+```bash
+git switch rust_arm64
+sudo docker buildx version
+
+# 构建器已存在时复用，否则首次创建：
+if sudo docker buildx inspect neu-arm64-builder >/dev/null 2>&1; then
+  sudo docker buildx use neu-arm64-builder
+else
+  sudo docker buildx create --name neu-arm64-builder --driver docker-container --use
+fi
+sudo docker buildx inspect --bootstrap
+```
+
+确认 `Platforms` 包含 `linux/arm64` 后，构建并导出：
+
+```bash
+sudo env NEU_BUILD_JOBS=4 BUILDKIT_PROGRESS=plain ./scripts/docker-export.sh
+```
+
+输出为 `release/neu-login-2.0.0-docker-linux-arm64.tar.gz`、对应 SHA256 文件和 `release/compose.yaml`。首次构建需要联网；在 x86_64 上运行 ARM64 编译器会经过 QEMU 模拟，首次编译和优化链接可能耗时较长。内存较少时省略 `NEU_BUILD_JOBS=4`，使用默认两个任务。
+
+如果平台列表不含 ARM64，或出现 `exec format error`，注册模拟器后重新检查：
+
+```bash
+sudo docker run --privileged --rm tonistiigi/binfmt --install arm64
+sudo docker buildx inspect --bootstrap
+```
+
+上面的命令只构建和导出镜像；发布包在目标 ARM64 Linux 主机按前文加载和启动。
+
+### 构建网络与资源设置
+
+`NEU_BUILD_JOBS` 必须为正整数，默认 `2`；可用 `NEU_BUILD_NETWORK` 指定构建网络。已设置的 `HTTP_PROXY`、`HTTPS_PROXY`、`NO_PROXY` 及其小写变量通过预定义构建参数传递，不写入运行镜像。
+
+```bash
+# 宿主机已有代理，且构建下载需要访问该本地端口时：
+sudo env NEU_BUILD_NETWORK=host HTTPS_PROXY=http://127.0.0.1:18080 ./scripts/docker-export.sh
+```
+
+脚本不会安装代理、更改 DNS、修改 Docker 全局代理或重启 Docker。若 Docker Hub DNS 异常，可先在网络正常的电脑用 `docker pull --platform linux/arm64` 和 `docker save` 准备官方 `rust:1.96.0-slim-bookworm`、`debian:bookworm-slim` 的 ARM64 归档，在构建主机 `docker load` 后再构建。基础镜像导入后仍需要下载系统包和 Cargo 依赖，完整应用镜像加载后可离线启动。
 
 使用 Buildx 手动构建时：
 
@@ -293,6 +344,9 @@ cargo test --locked --target aarch64-unknown-linux-gnu
 QEMU 用于验证 ARM64 指令与测试流程，实际校园网认证仍需在目标 ARM64 设备填写账号后验证。
 
 - 网页不可达：检查服务、端口占用、防火墙和局域网隔离。
+- 脚本报 `pipefail` 或解释器不存在：在项目目录运行 `sed -i 's/\r$//' scripts/*.sh Cargo.toml Cargo.lock Dockerfile compose.yaml` 和 `chmod +x scripts/*.sh`；脚本需要 Bash，不能使用 `sh` 执行。仓库的 `.gitattributes` 会保持 LF 换行。
+- 版本读取失败：确认 Cargo.toml 的 `[package]` 中存在 `version = "2.0.0"`；新版读取器兼容 CRLF、空格和行尾注释，不会把依赖版本当作程序版本。
+- 构建下载超时：检查网络与 DNS；基础镜像平台不匹配或缺少 Buildx 时不应进入编译，按构建说明修复插件和平台选择后重试。
 - 检测失败：检查运行设备的校园网、DNS、TLS 和认证服务器可达性。
 - 已在线但没保存账号：网关按当前出口返回状态；保存账号后才能在掉线时手动登录。
 - 登录页面变化：检查学校的页面、公钥、SSO 参数；高级设置可覆盖认证参数。

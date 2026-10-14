@@ -4,25 +4,53 @@ umask 077
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 project_dir=$(dirname -- "$script_dir")
-version=$(sed -n 's/^version = "\([^"]*\)"$/\1/p' "$project_dir/Cargo.toml")
+version=$(awk '
+  { sub(/\r$/, "") }
+  /^[[:space:]]*\[/ { package_section = ($0 ~ /^[[:space:]]*\[package\][[:space:]]*(#.*)?$/) }
+  package_section && /^[[:space:]]*version[[:space:]]*=[[:space:]]*"[^"]+"/ {
+    sub(/^[[:space:]]*version[[:space:]]*=[[:space:]]*"/, "")
+    sub(/".*$/, "")
+    print; exit
+  }
+' "$project_dir/Cargo.toml")
 if [[ -z $version ]]; then echo '无法读取 Cargo.toml 中的版本。' >&2; exit 1; fi
-if [[ $# -gt 2 ]]; then echo '用法：docker-export.sh [镜像标签] [输出目录]' >&2; exit 1; fi
+skip_build=false
+if [[ ${1:-} == --skip-build ]]; then skip_build=true; shift; fi
+if [[ $# -gt 2 ]]; then echo '用法：docker-export.sh [--skip-build] [镜像标签] [输出目录]' >&2; exit 1; fi
 image=${1:-"neu-login:$version-arm64"}
 output_dir=${2:-"$project_dir/release"}
 
 for tool in docker gzip sha256sum; do
   command -v "$tool" >/dev/null || { echo "缺少命令：$tool" >&2; exit 1; }
 done
+if [[ $skip_build == false ]] && ! docker buildx version >/dev/null 2>&1; then
+  echo 'ARM64 镜像构建需要 Docker Buildx 插件，经典构建器可能选错基础镜像架构，已停止构建。' >&2
+  echo '请安装 Buildx，并确认实际执行脚本的用户可运行 docker buildx version（使用 sudo 时验证 sudo docker buildx version）。' >&2
+  echo '安装及 ARMv7 构建器配置步骤见 README.md。' >&2
+  exit 1
+fi
 if ! docker info >/dev/null 2>&1; then
   echo '无法访问 Docker daemon。请确认 Docker 已启动且当前用户有访问权限，或使用 sudo 执行此脚本。' >&2
   exit 1
 fi
-
-if docker buildx version >/dev/null 2>&1; then
-  docker buildx build --platform linux/arm64 --load --tag "$image" "$project_dir"
-else
-  echo '未检测到 Buildx 插件，使用兼容的经典多阶段构建。'
-  DOCKER_BUILDKIT=0 docker build --platform linux/arm64 --tag "$image" "$project_dir"
+if [[ $skip_build == false ]]; then
+  build_jobs=${NEU_BUILD_JOBS:-2}
+  if [[ ! $build_jobs =~ ^[1-9][0-9]*$ ]]; then
+    echo 'NEU_BUILD_JOBS 必须是正整数。' >&2
+    exit 1
+  fi
+  build_options=(--platform linux/arm64 --load --tag "$image" --build-arg "CARGO_BUILD_JOBS=$build_jobs")
+  if [[ -n ${NEU_BUILD_NETWORK:-} ]]; then
+    build_options+=(--network "$NEU_BUILD_NETWORK")
+  fi
+  # Forward predefined build proxy variables by name, without printing their values.
+  # These variables are used only during the build, not in the runtime image.
+  for proxy_variable in HTTP_PROXY HTTPS_PROXY NO_PROXY http_proxy https_proxy no_proxy; do
+    if [[ -n ${!proxy_variable:-} ]]; then
+      build_options+=(--build-arg "$proxy_variable")
+    fi
+  done
+  docker buildx build "${build_options[@]}" "$project_dir"
 fi
 platform=$(docker image inspect --format '{{.Os}}-{{.Architecture}}' "$image")
 if [[ $platform != linux-arm64 ]]; then echo "镜像必须为 linux-arm64，实际为：$platform" >&2; exit 1; fi

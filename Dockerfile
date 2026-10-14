@@ -1,8 +1,10 @@
 ARG RUST_VERSION=1.96.0
 ARG TARGET_PLATFORM=linux/arm64
 FROM --platform=${TARGET_PLATFORM} rust:${RUST_VERSION}-slim-bookworm AS builder
+ARG CARGO_BUILD_JOBS=2
 
 WORKDIR /app
+RUN test "$(dpkg --print-architecture)" = arm64
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential cmake pkg-config ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -10,11 +12,12 @@ RUN apt-get update \
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 COPY web ./web
-RUN cargo build --release --locked \
+RUN cargo build --release --locked --jobs "${CARGO_BUILD_JOBS}" \
     && install -m 755 target/release/neu-login /usr/local/bin/neu-login
 
 FROM --platform=${TARGET_PLATFORM} debian:bookworm-slim AS runtime
 
+RUN test "$(dpkg --print-architecture)" = arm64
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl libgcc-s1 tzdata \
     && rm -rf /var/lib/apt/lists/* \
