@@ -26,7 +26,7 @@ impl Drop for Credentials {
 }
 
 pub struct Store {
-    db: Mutex<Connection>,
+    pub(crate) db: Mutex<Connection>,
     cipher: Aes256Gcm,
     pub directory: PathBuf,
 }
@@ -74,6 +74,9 @@ impl Store {
         fs::set_permissions(&db_path, fs::Permissions::from_mode(0o600))?;
         db.busy_timeout(std::time::Duration::from_secs(5))?;
         db.execute_batch("PRAGMA journal_mode=DELETE;
+            CREATE TABLE IF NOT EXISTS traffic_meta (id INTEGER PRIMARY KEY CHECK(id=1), account TEXT);
+            CREATE TABLE IF NOT EXISTS traffic_cache (account TEXT NOT NULL, month TEXT NOT NULL, bytes INTEGER NOT NULL CHECK(bytes>=0), updated_at INTEGER NOT NULL, PRIMARY KEY(account,month));
+            CREATE TABLE IF NOT EXISTS traffic_connections (id INTEGER PRIMARY KEY, account TEXT NOT NULL, month TEXT NOT NULL, started_at INTEGER NOT NULL, ended_at INTEGER, gateway_start INTEGER, baseline_bytes INTEGER CHECK(baseline_bytes>=0), bytes INTEGER CHECK(bytes>=0), state TEXT NOT NULL, reason TEXT);
             CREATE TABLE IF NOT EXISTS account (id INTEGER PRIMARY KEY CHECK(id=1), username TEXT NOT NULL, password BLOB NOT NULL);
             CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY AUTOINCREMENT, time INTEGER NOT NULL, action TEXT NOT NULL, success INTEGER NOT NULL, message TEXT NOT NULL);")?;
