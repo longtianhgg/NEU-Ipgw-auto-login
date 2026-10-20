@@ -4,6 +4,24 @@
 
 使用 Rust 重写东北大学校园网认证逻辑，提供账号保存、状态检测、一键登录/注销、操作记录、背景和外观设置。网页、SVG 图标和默认背景内置于原生二进制，运行时无需 Python、Node.js、Docker 或 CDN。
 
+## 流量统计（2.1.0）
+
+首页“本月已用流量”直接读取学校门户的 `sum_bytes`，按 1024 进位显示；零值是有效值，缺失或超出有符号 64 位范围的值显示尚未获取。不会使用 `all_bytes` 估算实时用量。
+
+真实网关在登录初期偶尔返回短暂零值或缺失累计，程序会进行最多三次只读重查，不重复认证。持续回退会标记无法准确结算；合法零值仍按零流量处理。
+
+单次连接在线时显示“待结算”，断开后按 **官方月累计 − 建立连接时的官方月累计** 计算。离线接口没有累计值时，保留记录，等下次同账号登录取得累计值后补算。当前连接待结算时会同时显示上次连接结果。不会为了查询流量自动重连。
+
+首次升级接管已有连接、外部重连、账号切换造成边界不完整、缺少基线或连接标识、跨北京时间月份、累计异常回退等情况显示“无法准确结算”及原因。从下一次实际登录开始完整记录。重复点击已在线账号的登录按钮不会重置起点；临时检测失败也不会当成断开。
+
+按网关实际账号隔离缓存和连接记录，与设置中待登录账号分开。离线显示账号、缓存及更新时间；跨月没有新数据时显示尚未获取。SQLite 增量创建 `traffic_meta`、`traffic_cache`、`traffic_connections`，保留已有账号、密钥、设置和日志。重启继续使用记录的基线。
+
+此数值按账号官方月累计差值计算，同账号其他设备同期产生的用量可能计入，不能作为本设备独占流量计。
+
+`/api/status` 和 SSE `update` 的 `status.traffic` 包含 `account`、`month`、`monthly`（`bytes`、`updated_at`）、`cached`、`current`、`last`、`error`。连接记录包含账号、月份、起止时间、网关 `add_time`、`baseline_bytes`、结算 `bytes`、`state`（`pending` / `settled` / `unavailable`）及 `reason`。未取得数据时使用 `null`，字节运算在服务端使用经过范围检查的 64 位整数。
+
+升级前停止服务并备份完整数据目录及旧程序。回滚时停止服务，同时恢复备份程序和数据，再启动；不要只恢复密钥或只恢复数据库。
+
 ## 功能与默认行为
 
 - 首页区分在线、离线、检测失败，显示当前在线账号、网络出口、在线时长和最近检测时间。
@@ -67,9 +85,9 @@ export AR_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-ar
 
 Dockerfile 使用多阶段构建：在官方 Rust 1.96.0 镜像中编译，运行镜像仅保留二进制、CA 证书、健康检查和时区所需组件。无需在目标主机安装 Rust，也不依赖目标主机的 glibc 版本；构建和运行阶段均使用 Debian Bookworm。
 
-默认最多使用两个 Rust 编译任务，适用于 2 GB 内存的 RK3288 开发板。内存更充足时可用 `docker buildx build --platform linux/arm/v7 --load --build-arg CARGO_BUILD_JOBS=4 -t neu-login:2.0.0-arm32 .` 调整并行数。
+默认最多使用两个 Rust 编译任务，适用于 2 GB 内存的 RK3288 开发板。内存更充足时可用 `docker buildx build --platform linux/arm/v7 --load --build-arg CARGO_BUILD_JOBS=4 -t neu-login:2.1.0-arm32 .` 调整并行数。
 
-Dockerfile、Compose 和导出脚本默认构建 `linux/arm/v7`，镜像标签为 `neu-login:2.0.0-arm32`。目标主机需要 ARMv7 Linux Docker。ARMv7 主机原生构建；在 x86_64 主机构建需要支持 ARMv7 的 Buildx/QEMU 构建器，模拟构建会较慢。[Docker 多平台构建说明](https://docs.docker.com/build/building/multi-platform/)
+Dockerfile、Compose 和导出脚本默认构建 `linux/arm/v7`，镜像标签为 `neu-login:2.1.0-arm32`。目标主机需要 ARMv7 Linux Docker。ARMv7 主机原生构建；在 x86_64 主机构建需要支持 ARMv7 的 Buildx/QEMU 构建器，模拟构建会较慢。[Docker 多平台构建说明](https://docs.docker.com/build/building/multi-platform/)
 
 首次构建需联网下载基础镜像、系统包和 Cargo 依赖；目标主机加载导出的镜像后可离线启动。
 
@@ -91,7 +109,7 @@ sudo docker buildx inspect --bootstrap
 
 ```bash
 sudo ./scripts/docker-export.sh
-sudo docker image inspect --format '{{.Os}}/{{.Architecture}}/{{.Variant}}' neu-login:2.0.0-arm32
+sudo docker image inspect --format '{{.Os}}/{{.Architecture}}/{{.Variant}}' neu-login:2.1.0-arm32
 # 应输出 linux/arm/v7
 
 sudo docker compose up -d --no-build --pull never
@@ -166,23 +184,23 @@ docker compose up -d
 # Docker 需要管理员权限时：sudo ./scripts/docker-export.sh
 ```
 
-脚本构建 `neu-login:2.0.0-arm32` 并导出到 `release/`，同时检查镜像平台，拒绝导出非 ARMv7 镜像。
+脚本构建 `neu-login:2.1.0-arm32` 并导出到 `release/`，同时检查镜像平台，拒绝导出非 ARMv7 镜像。
 
 如果镜像已通过其他构建命令生成，可以使用 `sudo ./scripts/docker-export.sh --skip-build` 直接导出，避免再次编译；仍会检查已有镜像是否为 ARMv7。
 
 生成的文件：
 
 ```text
-release/neu-login-2.0.0-docker-linux-arm-v7.tar.gz
-release/neu-login-2.0.0-docker-linux-arm-v7.tar.gz.sha256
+release/neu-login-2.1.0-docker-linux-arm-v7.tar.gz
+release/neu-login-2.1.0-docker-linux-arm-v7.tar.gz.sha256
 release/compose.yaml
 ```
 
 复制这三个文件到同架构目标主机的同一目录，执行：
 
 ```bash
-sha256sum -c neu-login-2.0.0-docker-linux-arm-v7.tar.gz.sha256
-docker load -i neu-login-2.0.0-docker-linux-arm-v7.tar.gz
+sha256sum -c neu-login-2.1.0-docker-linux-arm-v7.tar.gz.sha256
+docker load -i neu-login-2.1.0-docker-linux-arm-v7.tar.gz
 docker compose up -d --no-build --pull never
 ```
 
@@ -193,7 +211,7 @@ docker compose up -d --no-build --pull never
 ```bash
 docker run -d --name neu-login --restart unless-stopped --network host \
   --mount type=volume,source=neu-login_neu_data,target=/data \
-  --platform linux/arm/v7 neu-login:2.0.0-arm32
+  --platform linux/arm/v7 neu-login:2.1.0-arm32
 ```
 
 导出脚本使用 `docker buildx build --platform linux/arm/v7 --load`；缺少 Buildx 时立即报错，不进入经典构建器。通过 sudo 执行时，生成的文件归调用用户所有，便于复制。
@@ -227,17 +245,17 @@ sudo docker buildx inspect --bootstrap
 
 ```bash
 docker buildx inspect --bootstrap
-docker buildx build --platform linux/arm/v7 --load -t neu-login:2.0.0-arm32 .
-docker image inspect --format '{{.Os}}/{{.Architecture}}/{{.Variant}}' neu-login:2.0.0-arm32
+docker buildx build --platform linux/arm/v7 --load -t neu-login:2.1.0-arm32 .
+docker image inspect --format '{{.Os}}/{{.Architecture}}/{{.Variant}}' neu-login:2.1.0-arm32
 # 应输出 linux/arm/v7
 ```
 
 可指定标签与输出目录：
 
 ```bash
-./scripts/docker-export.sh neu-login:2.0.0-arm32 /tmp/neu-login-arm32-images
+./scripts/docker-export.sh neu-login:2.1.0-arm32 /tmp/neu-login-arm32-images
 # 自定义标签在目标主机也需指定：
-NEU_IMAGE=neu-login:2.0.0-arm32 docker compose up -d --no-build --pull never
+NEU_IMAGE=neu-login:2.1.0-arm32 docker compose up -d --no-build --pull never
 ```
 
 ### 数据、图片目录与运行参数
@@ -331,7 +349,7 @@ sudo ./scripts/uninstall.sh --purge-data
 ./scripts/package.sh
 ```
 
-生成 `release/neu-login-2.0.0-arm32-linux.tar.gz` 及 SHA256 文件，包含二进制、systemd 配置、安装/卸载脚本和说明，不包含账号、数据库、密钥或测试数据。构建目录、发布包和运行数据已在 `.gitignore` 中排除。
+生成 `release/neu-login-2.1.0-arm32-linux.tar.gz` 及 SHA256 文件，包含二进制、systemd 配置、安装/卸载脚本和说明，不包含账号、数据库、密钥或测试数据。构建目录、发布包和运行数据已在 `.gitignore` 中排除。
 
 原生发布包要求目标设备 glibc 版本不低于编译工具链使用的版本；交叉编译用的 Ubuntu 24.04 工具链产生的程序不可直接承诺兼容旧发行版。可在目标设备从源码构建，或使用基于 Debian Bookworm 的 ARMv7 Docker 镜像。迁移时整体复制数据目录，SQLite 数据和密钥格式与 x86_64 版本相同。
 
@@ -376,21 +394,15 @@ cargo fmt --all -- --check
 node --check web/app.js
 ```
 
-Rust 测试使用本地模拟 CAS/IPGW，验证 RSA 解密、UTF-8 字节长度、Cookie、门户参数、ticket、错误密码、未知响应、超时、注销未生效、重复操作、加密持久化和同源校验；不读取真实账号、不访问真实认证服务器。
+Rust 测试使用本地模拟 CAS/IPGW，验证 RSA 解密、UTF-8 字节长度、Cookie、门户参数、ticket、错误密码、未知响应、超时、注销未生效、重复操作、加密持久化和同源校验，并覆盖数字字符串、超过 4 GB、零流量、缺失字段、延期结算、账号切换、外部重连、重启、北京时间跨月、异常回退及登录初期短暂零值；不读取真实账号、不访问真实认证服务器。
 
-在 x86_64 主机运行 ARMv7 测试，额外安装 `qemu-user-static`，保持上面的交叉编译环境变量，并设置 runner：
+2.1.0 已在 x86_64 本机完成真实网关注销、登录、受控小流量传输、再登录补结算，以及服务重启恢复验证，月用量与门户 `sum_bytes` 一致。官方结算可能延迟，单次连接数值严格采用取得的官方累计快照相减，不承诺等于测试文件大小。桌面、平板和手机尺寸及双页面 SSE 同步均已检查。
 
-```bash
-sudo apt-get install qemu-user-static
-export CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_RUNNER='qemu-arm-static -L /usr/arm-linux-gnueabihf'
-cargo test --locked --target armv7-unknown-linux-gnueabihf
-```
-
-QEMU 用于验证 ARMv7 指令与测试流程，实际校园网认证仍需在目标 ARMv7 设备填写账号后验证。
+ARM32 补充验证：流量状态机与持久化、超过 4 GB 的网关计数解析、完整登录及延期结算 API 链路通过交叉编译和 QEMU 测试；Clippy 与格式检查通过。本次只交付 ARM 源码，不生成 ARM 镜像。
 
 - 网页不可达：检查服务、端口占用、防火墙和局域网隔离。
 - 脚本报 `invalid option name`、`pipefail` 或解释器不存在：检查是否被转成 Windows CRLF 换行。在项目目录运行 `sed -i 's/\r$//' scripts/*.sh` 和 `chmod +x scripts/*.sh`，再执行 `sudo ./scripts/docker-export.sh`。脚本需要 Bash，不能用 `sh` 执行。仓库的 `.gitattributes` 已固定 Shell 脚本为 LF 换行；复制文件或解压时也应保留此格式。
-- 报“无法读取 Cargo.toml 中的版本”：确认项目根目录存在含 `[package]` 和 `version = "2.0.0"` 的 Cargo.toml。旧版脚本只匹配严格的 LF 格式；先执行 `sed -i 's/\r$//' Cargo.toml Cargo.lock Dockerfile compose.yaml` 再重试。新版脚本兼容 CRLF、空格和行尾注释，且仅读取 `[package]` 的版本。
+- 报“无法读取 Cargo.toml 中的版本”：确认项目根目录存在含 `[package]` 和 `version = "2.1.0"` 的 Cargo.toml。旧版脚本只匹配严格的 LF 格式；先执行 `sed -i 's/\r$//' Cargo.toml Cargo.lock Dockerfile compose.yaml` 再重试。新版脚本兼容 CRLF、空格和行尾注释，且仅读取 `[package]` 的版本。
 - 镜像下载超时：确认 Docker Hub 域名的 DNS 和网络可达性；解析到异常地址时仅重试编译无法解决，参照构建网络说明导入基础镜像或使用已有代理。
 - 检测失败：检查运行设备的校园网、DNS、TLS 和认证服务器可达性。
 - 已在线但没保存账号：网关按当前出口返回状态；保存账号后才能在掉线时手动登录。

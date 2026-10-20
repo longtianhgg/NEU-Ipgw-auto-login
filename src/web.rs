@@ -81,9 +81,26 @@ impl AppState {
 
     pub async fn snapshot(&self) -> ApiResult<Value> {
         Ok(
-            json!({"status":self.0.status.read().await.clone(),"account":self.0.store.account().map_err(internal)?,
+            json!({"status":self.current_status().await,"account":self.0.store.account().map_err(internal)?,
             "settings":self.0.settings.read().await.clone(),"logs":self.0.store.logs(1).map_err(internal)?}),
         )
+    }
+
+    async fn current_status(&self) -> Status {
+        let mut status = self.0.status.read().await.clone();
+        match self.0.store.traffic(None, chrono::Utc::now().timestamp()) {
+            Ok(mut traffic) => {
+                traffic.cached = status.state != Connection::Online
+                    || status.gateway_bytes.is_none()
+                    || status.username.is_none();
+                if status.state == Connection::Online && status.username.is_none() {
+                    traffic.error = Some("网关未返回实际账号，无法归属流量统计".into());
+                }
+                status.traffic = traffic;
+            }
+            Err(_) => status.traffic.error = Some("流量记录读取失败，请检查服务日志".into()),
+        }
+        status
     }
 
     async fn publish(&self) {
@@ -98,8 +115,32 @@ impl AppState {
     }
 
     async fn check(&self, client: &AuthClient) -> Status {
+        self.check_login(client, false).await
+    }
+
+    async fn check_login(&self, client: &AuthClient, new_login: bool) -> Status {
         let previous = self.0.status.read().await.clone();
-        let mut status = match client.status().await {
+        let mut received = client.status().await;
+        // The real gateway can briefly return zero while loading a newly
+        // authenticated account. Recheck read-only before accepting a baseline;
+        // a persistent rollback is still explicitly marked unavailable.
+        for delay in [400, 800, 1500] {
+            let transient = received.as_ref().ok().is_some_and(|s| {
+                s.state == Connection::Online
+                    && ((new_login && (s.gateway_bytes.is_none() || s.gateway_bytes == Some(0)))
+                        || previous.traffic.monthly.as_ref().is_some_and(|m| {
+                            Some(&m.account) == s.username.as_ref()
+                                && m.month == crate::traffic::month(s.checked_at.unwrap())
+                                && s.gateway_bytes.is_some_and(|n| n < m.bytes)
+                        }))
+            });
+            if !transient {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(delay)).await;
+            received = client.status().await;
+        }
+        let mut status = match received {
             Ok(mut s) => {
                 if s.state == Connection::Online && s.online_since.is_none() {
                     let same_account = s.username == previous.username;
@@ -123,9 +164,22 @@ impl AppState {
                 username: previous.username.clone(),
                 ip: previous.ip.clone(),
                 busy: None,
+                ..Status::default()
             },
         };
         status.busy = previous.busy;
+        match self.0.store.traffic(
+            Some((&status, new_login)),
+            status
+                .checked_at
+                .unwrap_or_else(|| chrono::Utc::now().timestamp()),
+        ) {
+            Ok(traffic) => status.traffic = traffic,
+            Err(e) => {
+                tracing::error!(error=%e,"流量记录保存失败");
+                status.traffic.error = Some("流量记录保存失败，请检查服务日志".into());
+            }
+        }
         *self.0.status.write().await = status.clone();
         // Record changes and error transitions, not every periodic tick.
         if status.state != previous.state
@@ -221,13 +275,14 @@ impl AppState {
                     } else {
                         Connection::Offline
                     };
-                    let mut after = self.check(&client).await;
+                    let new_login = action == "login" && before.state == Connection::Offline;
+                    let mut after = self.check_login(&client, new_login).await;
                     for delay in [400, 800] {
                         if after.state == expected {
                             break;
                         }
                         tokio::time::sleep(Duration::from_millis(delay)).await;
-                        after = self.check(&client).await;
+                        after = self.check_login(&client, new_login).await;
                     }
                     if after.state == expected {
                         (
@@ -459,7 +514,7 @@ async fn guard(request: Request, next: Next) -> Response {
 }
 
 async fn status(State(app): State<AppState>) -> Json<Status> {
-    Json(app.0.status.read().await.clone())
+    Json(app.current_status().await)
 }
 async fn refresh(State(app): State<AppState>) -> ApiResult<Json<Status>> {
     // Finish the operation even if the browser closes its connection.
@@ -770,6 +825,82 @@ mod tests {
         let messages = serde_json::to_string(&app.0.store.logs(1).unwrap()).unwrap();
         assert!(!messages.contains("TEST-SECRET-TOKEN"));
         assert!(!messages.contains("密碼"));
+    }
+
+    #[tokio::test]
+    async fn official_totals_settle_only_after_disconnect_and_next_login() {
+        let fixture = Fixture::start().await;
+        let dir = tempfile::tempdir().unwrap();
+        let app = fixture_app(&fixture, dir.path()).await;
+        app.operate("login").await.unwrap();
+        let baseline = app
+            .current_status()
+            .await
+            .traffic
+            .current
+            .unwrap()
+            .baseline_bytes
+            .unwrap();
+        fixture
+            .state
+            .monthly_bytes
+            .store(baseline + 5_000_000_000, Ordering::SeqCst);
+        app.operate("login").await.unwrap();
+        let current = app.current_status().await.traffic.current.unwrap();
+        assert_eq!(current.baseline_bytes, Some(baseline));
+        assert_eq!(current.state, "pending");
+        assert!(current.bytes.is_none());
+        fixture.mode(Mode::LogoutStaysOnline);
+        assert!(app.operate("logout").await.is_err());
+        assert!(app.current_status().await.traffic.current.is_some());
+        fixture.mode(Mode::Normal);
+        app.operate("logout").await.unwrap();
+        let t = app.current_status().await.traffic;
+        assert_eq!(t.last.unwrap().state, "pending");
+        assert!(t.cached);
+        assert!(t.current.is_none());
+        // Process restart retains the disconnected record and cached total.
+        drop(app);
+        let app = fixture_app(&fixture, dir.path()).await;
+        app.operate("login").await.unwrap();
+        let t = app.current_status().await.traffic;
+        assert_eq!(t.last.unwrap().bytes, Some(5_000_000_000));
+        assert_eq!(t.current.unwrap().state, "pending");
+        let snapshot = app.snapshot().await.unwrap();
+        assert!(
+            snapshot["status"]["traffic"]["monthly"]["bytes"]
+                .as_i64()
+                .unwrap()
+                > 4_294_967_295
+        );
+        assert!(snapshot["status"].get("gateway_bytes").is_none());
+    }
+
+    #[tokio::test]
+    async fn transient_zero_after_login_is_rechecked_without_reauthenticating() {
+        let fixture = Fixture::start().await;
+        let dir = tempfile::tempdir().unwrap();
+        let app = fixture_app(&fixture, dir.path()).await;
+        app.operate("login").await.unwrap();
+        let baseline = app
+            .current_status()
+            .await
+            .traffic
+            .current
+            .unwrap()
+            .baseline_bytes
+            .unwrap();
+        app.operate("logout").await.unwrap();
+        fixture
+            .state
+            .monthly_bytes
+            .store(baseline + 12345, Ordering::SeqCst);
+        fixture.state.zero_statuses.store(2, Ordering::SeqCst);
+        app.operate("login").await.unwrap();
+        let t = app.current_status().await.traffic;
+        assert_eq!(t.last.unwrap().bytes, Some(12345));
+        assert_eq!(t.current.unwrap().baseline_bytes, Some(baseline + 12345));
+        assert_eq!(fixture.state.posts.load(Ordering::SeqCst), 2);
     }
 
     #[tokio::test]

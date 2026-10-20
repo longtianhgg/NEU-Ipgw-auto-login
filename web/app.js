@@ -101,6 +101,32 @@ function renderLogs(target, items) {
   }).join('');
 }
 
+function formatBytes(bytes) {
+  if (bytes === null || bytes === undefined) return '尚未获取';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+  let value = Number(bytes), unit = 0;
+  while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
+  return `${value.toFixed(unit ? 2 : 0)} ${units[unit]}`;
+}
+function sessionText(session) {
+  if (!session) return '尚未获取';
+  return session.state === 'settled' ? formatBytes(session.bytes) : session.state === 'pending' ? '待结算' : '无法准确结算';
+}
+function renderTraffic() {
+  const traffic = state.status.traffic || {};
+  // Prevent a tab left open across Beijing midnight from labelling last month's
+  // cached amount as this month's, even when periodic checks are disabled.
+  const china = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 7);
+  const monthly = traffic.monthly?.month === china ? traffic.monthly : null;
+  $('monthly-traffic').textContent = formatBytes(monthly?.bytes);
+  $('monthly-detail').textContent = monthly ? `${monthly.month} · 账号 ${monthly.account} · ${traffic.cached ? '缓存，' : ''}更新于 ${dateTime.format(new Date(monthly.updated_at * 1000))}` : `${china} · 尚未取得本月官方累计`;
+  const current = traffic.current || traffic.last;
+  const crossed = current?.state === 'pending' && current.month !== china;
+  $('session-traffic').textContent = crossed ? '无法准确结算' : sessionText(current);
+  $('session-detail').textContent = traffic.error || (crossed ? '连接跨月或月累计已重置' : current?.reason) || (current?.state === 'pending' ? '等待断开后的官方月累计' : current ? `账号 ${current.account}` : '从下一次实际登录开始记录');
+  $('previous-traffic').textContent = traffic.current && traffic.last ? `上次连接已用：${sessionText(traffic.last)}${traffic.last.reason ? `（${traffic.last.reason}）` : ''}` : '';
+}
+
 function renderHome() {
   const status = state.status;
   const type = ['online', 'offline'].includes(status.state) ? status.state : 'unknown';
@@ -124,6 +150,7 @@ function renderHome() {
   document.querySelectorAll('.operation-button').forEach(button => { button.disabled = Boolean(busy) || !state.connected; });
   $('refresh-button').querySelector('svg').classList.toggle('spinning', busy === 'refresh');
   renderDuration();
+  renderTraffic();
   renderLogs($('recent-logs'), state.logs.items.slice(0, 3));
 }
 
@@ -315,3 +342,5 @@ async function initialize() {
   events.addEventListener('update', event => { try { acceptSnapshot(JSON.parse(event.data)); } catch { toast('服务返回的数据格式异常，请刷新页面', true); } });
 }
 initialize();
+
+setInterval(renderTraffic, 30000);

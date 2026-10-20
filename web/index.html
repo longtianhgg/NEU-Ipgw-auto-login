@@ -40,7 +40,7 @@
    <button class="nav-item" data-page="appearance"><svg><use href="#i-palette"/></svg><span>外观设置</span></button>
    <button class="nav-item" data-page="advanced"><svg><use href="#i-settings"/></svg><span>高级设置</span></button>
   </nav>
-  <div class="sidebar-footer"><strong>NEU 校园网</strong><span>v2.0.0 · Rust</span><p>为更便捷的校园生活</p><div class="service-indicator"><i id="service-dot"></i><span id="service-label">正在连接服务</span></div></div>
+  <div class="sidebar-footer"><strong>NEU 校园网</strong><span>v2.1.0 · Rust</span><p>为更便捷的校园生活</p><div class="service-indicator"><i id="service-dot"></i><span id="service-label">正在连接服务</span></div></div>
  </aside>
  <main class="workspace">
   <header class="workspace-header"><div><span class="eyebrow">CAMPUS CONNECTION</span><h1 id="page-title">连接，让生活更简单</h1></div><span class="date-label" id="today"></span></header>
@@ -51,6 +51,11 @@
       <div class="card-top"><h2 id="status-card-title">校园网状态 <i id="status-dot" class="status-dot unknown"></i></h2><button class="pill-button operation-button" id="refresh-button"><svg><use href="#i-refresh"/></svg><span>刷新状态</span></button></div>
       <div class="connection-hero"><div id="connection-orb" class="connection-orb unknown"><div><svg><use href="#i-wifi"/></svg></div></div><h3 id="connection-title">检测中</h3><p id="connection-message">正在获取校园网状态</p><span class="busy-label" id="busy-label" hidden></span></div>
       <div class="status-stats"><div class="stat"><span class="stat-icon"><svg><use href="#i-user"/></svg></span><div><span>当前账号</span><strong id="stat-account">未设置</strong></div></div><div class="stat"><span class="stat-icon"><svg><use href="#i-clock"/></svg></span><div><span id="duration-label">已在线时长</span><strong id="stat-duration">—</strong></div></div><div class="stat"><span class="stat-icon"><svg><use href="#i-pin"/></svg></span><div><span>最近检测</span><strong id="stat-check">—</strong></div></div></div>
+      <div class="traffic-grid" aria-live="polite">
+        <div class="traffic-card"><span>本月已用流量</span><strong id="monthly-traffic">尚未获取</strong><small id="monthly-detail"></small></div>
+        <div class="traffic-card"><span>单次连接流量</span><strong id="session-traffic">尚未获取</strong><small id="session-detail"></small><small id="previous-traffic"></small></div>
+      </div>
+      <p class="traffic-note">按账号月累计差值计算；同账号其他设备同期用量可能计入。在线连接待断开后结算，离线无累计值时在下次登录补算。</p>
       <p class="network-detail" id="network-detail">认证的是运行此服务的设备所使用的网络出口</p>
      </section>
      <section class="history-card glass" aria-labelledby="history-title"><div class="card-top"><h2 id="history-title">最近操作记录</h2><button class="text-button" id="all-logs">查看全部 <span aria-hidden="true">↗</span></button></div><div id="recent-logs" class="log-list"><p class="empty-state">还没有操作记录</p></div></section>
