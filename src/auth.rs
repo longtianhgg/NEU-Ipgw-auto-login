@@ -92,12 +92,10 @@ pub fn parse_status(text: &str, now: i64) -> Result<Status> {
                 .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
         })
     };
-    let upstream_since = number("online_time").filter(|n| *n >= 946684800 && *n <= now);
-    let since = upstream_since.or_else(|| {
-        number("sum_seconds")
-            .filter(|n| *n >= 0 && *n < 10 * 365 * 86400)
-            .map(|s| now - s)
-    });
+    let gateway_start = number("add_time").filter(|n| *n >= 946684800 && *n <= now);
+    // sum_seconds is a monthly total, not the start of this connection.
+    let since =
+        gateway_start.or_else(|| number("online_time").filter(|n| *n >= 946684800 && *n <= now));
     let string = |names: &[&str]| {
         names.iter().find_map(|n| {
             p.get(*n)
@@ -108,11 +106,7 @@ pub fn parse_status(text: &str, now: i64) -> Result<Status> {
     };
     Ok(Status {
         state: state.clone(),
-        username: if state == Connection::Online {
-            string(&["user_name", "username"])
-        } else {
-            None
-        },
+        username: string(&["user_name", "username"]),
         ip: string(&["online_ip", "client_ip", "ip"]),
         online_since: if state == Connection::Online {
             since
@@ -132,6 +126,9 @@ pub fn parse_status(text: &str, now: i64) -> Result<Status> {
         }
         .into(),
         busy: None,
+        gateway_bytes: number("sum_bytes").filter(|n| *n >= 0),
+        gateway_start,
+        traffic: Default::default(),
     })
 }
 
@@ -453,6 +450,27 @@ mod tests {
         assert!(parse_status("{\"error\":\"server_error\"}", 1800000000).is_err());
         assert!(parse_status("<html>error</html>", 1800000000).is_err());
         assert!(parse_status("json({\"error\":\"ok\"}", 1800000000).is_err());
+    }
+    #[test]
+    fn official_bytes_are_checked_i64_and_add_time_identifies_the_session() {
+        for (value, expected) in [
+            ("5000000000", Some(5_000_000_000)),
+            ("\"5000000000\"", Some(5_000_000_000)),
+            ("0", Some(0)),
+            ("-1", None),
+            ("9223372036854775808", None),
+            ("\"18446744073709551616\"", None),
+            ("null", None),
+            ("1.5", None),
+        ] {
+            let p = parse_status(&format!(r#"json({{"error":"ok","add_time":"1700000000","sum_seconds":999,"sum_bytes":{value},"all_bytes":123456}});"#), 1800000000).unwrap();
+            assert_eq!(p.gateway_bytes, expected);
+            assert_eq!(p.gateway_start, Some(1700000000));
+            assert_eq!(p.online_since, Some(1700000000));
+        }
+        let p = parse_status(r#"{"error":"ok","sum_seconds":100}"#, 1800000000).unwrap();
+        assert!(p.gateway_bytes.is_none());
+        assert!(p.online_since.is_none());
     }
     #[test]
     fn parses_hidden_fields_and_nested_errors() {

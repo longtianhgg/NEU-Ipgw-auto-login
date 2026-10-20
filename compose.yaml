@@ -2,7 +2,7 @@ name: neu-login
 
 services:
   neu-login:
-    image: ${NEU_IMAGE:-neu-login:2.0.0}
+    image: ${NEU_IMAGE:-neu-login:2.1.0}
     build:
       context: .
       dockerfile: Dockerfile

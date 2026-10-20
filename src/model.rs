@@ -121,6 +121,12 @@ pub struct Status {
     pub checked_at: Option<i64>,
     pub message: String,
     pub busy: Option<String>,
+    #[serde(default)]
+    pub traffic: crate::traffic::Traffic,
+    #[serde(skip)]
+    pub gateway_bytes: Option<i64>,
+    #[serde(skip)]
+    pub gateway_start: Option<i64>,
 }
 
 impl Default for Status {
@@ -134,6 +140,9 @@ impl Default for Status {
             checked_at: None,
             message: "尚未检测校园网状态".into(),
             busy: None,
+            traffic: Default::default(),
+            gateway_bytes: None,
+            gateway_start: None,
         }
     }
 }

@@ -17,7 +17,7 @@ use std::{
     collections::HashMap,
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicI64, AtomicU8, AtomicUsize, Ordering},
     },
     time::Duration,
 };
@@ -37,6 +37,9 @@ pub struct Mock {
     pub online: AtomicBool,
     pub posts: AtomicUsize,
     pub redeemed: AtomicUsize,
+    pub zero_statuses: AtomicUsize,
+    pub monthly_bytes: AtomicI64,
+    pub gateway_start: AtomicI64,
     key: RsaPrivateKey,
 }
 pub struct Fixture {
@@ -61,6 +64,9 @@ impl Fixture {
             online: AtomicBool::new(false),
             posts: AtomicUsize::new(0),
             redeemed: AtomicUsize::new(0),
+            zero_statuses: AtomicUsize::new(0),
+            monthly_bytes: AtomicI64::new(7_361_325_863),
+            gateway_start: AtomicI64::new(chrono::Utc::now().timestamp() - 100),
             key,
         });
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -166,6 +172,7 @@ async fn redeem(
     if m.mode.load(Ordering::SeqCst) == Mode::MalformedApi as u8 {
         return "<html>TEST-SECRET-TOKEN</html>".into_response();
     }
+    m.gateway_start.fetch_add(1, Ordering::SeqCst);
     m.online.store(true, Ordering::SeqCst);
     Json(serde_json::json!({"code":0,"message":"success"})).into_response()
 }
@@ -178,7 +185,21 @@ async fn status(State(m): State<Arc<Mock>>) -> Response {
         return "<html>server error TEST-SECRET-TOKEN</html>".into_response();
     }
     if m.online.load(Ordering::SeqCst) {
-        format!("json({{\"error\":\"ok\",\"user_name\":\"学生\",\"online_ip\":\"10.0.0.2\",\"online_time\":{}}});",chrono::Utc::now().timestamp()-90).into_response()
+        let zero = m
+            .zero_statuses
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
+            .is_ok();
+        let bytes = if zero {
+            0
+        } else {
+            m.monthly_bytes.load(Ordering::SeqCst)
+        };
+        Json(
+            serde_json::json!({"error":"ok","user_name":"学生","online_ip":"10.0.0.2",
+            "add_time":m.gateway_start.load(Ordering::SeqCst),
+            "sum_bytes":bytes.to_string()}),
+        )
+        .into_response()
     } else {
         "json({\"error\":\"not_online_error\"})".into_response()
     }
